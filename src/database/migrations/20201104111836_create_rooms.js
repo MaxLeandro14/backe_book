@@ -7,12 +7,12 @@ exports.up = function(knex) {
     	table.string('nome_livro');
         table.string('url_img').nullable();
         table.string('infor_regras').nullable();
-        table.string('cod_sala');
+        table.string('cod_sala').unique();
         table.boolean('ativo').defaultTo('0');
         table.date('data_inicio');
         table.date('data_fim');
-        table.date('data_leituras').nullable();
-        table.date('data_debate');
+        table.string('data_leituras').nullable();
+        table.string('data_debate').nullable();
         table.integer('paginas');
         table.integer('total_sala');
 	    table.timestamps();
