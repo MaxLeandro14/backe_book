@@ -118,7 +118,7 @@ routes.get('/v1/room_all', async (req, res) => {
 routes.get('/v1/room_particip', async (req, res) => {
 	const {user, page = 1, tipo} = req.query;
 	
-	const valor = (tipo === 'one') ? '1' : '3'
+	const valor = (tipo === 'one') ? '1' : '2'
 	var rooms = '';
 	var status_req = '1';
 	try {
@@ -128,6 +128,116 @@ routes.get('/v1/room_particip', async (req, res) => {
 	}
 
   return res.json({status_req, rooms});
+})
+
+//usuários- as salas deste usuário
+//replicar para aberto e fechado
+routes.get('/v1/room_me', async (req, res) => {
+	const {user, page = 1, tipo} = req.query;
+	
+	const valor = (tipo === 'one') ? '!=' : '='
+	var rooms = '';
+	var status_req = '1';
+
+	try {
+		rooms = await conn('rooms').where('user_id', user).andWhere('rooms.ativo', valor, '2').select('rooms.ativo', 'rooms.url_img', 'rooms.cod_sala', 'rooms.room_id').limit(6).offset((page -1) * 6).orderBy('ativo','asc');
+	} catch (er) {
+		status_req = '2';
+	}
+
+	return res.json({status_req, rooms});
+})
+
+routes.get('/v1/my_perfil', async (req, res) => {
+	const {user} = req.query;
+	var perfil = '';
+	var status_req = '1';
+	try {
+		perfil = await conn('users').select('*').where('user_id', user);
+	} catch (er) {
+		status_req = '2';
+	}
+
+	if (perfil === '') status_req = '0'
+
+  return res.json({status_req, perfil});
+})
+
+//usuários- pesquisar por nome
+routes.get('/v1/users_search/', async (req, res) => {
+	const {user, page = 1} = req.query;
+	var users = '';
+	status_req = '1'
+	try {
+		users = await conn('users').where('name', 'like', `%${user}%`).select('name','cod_user', 'url_avatar').limit(6).offset((page -1) * 6);
+	} catch (er) {
+		status_req = '2';
+	}
+
+  return res.json({users, status_req});
+})
+
+//Perfil Outros
+routes.get('/v1/perfil', async (req, res) => {
+	const {user} = req.query;
+	var status_req = '1';
+	var perfil = '';
+
+	try {
+		perfil = await conn('users').select('*').where('user_id', user);
+	} catch (er) {
+		status_req = '2';
+	}
+
+  return res.json({status_req, perfil});
+})
+
+routes.get('/v1/room_other', async (req, res) => {
+	const {user, page = 1, tipo} = req.query;
+	
+	const valor = (tipo === 'one') ? '1' : '2'
+	var rooms = '';
+	var status_req = '1';
+
+	try {
+		rooms = await conn('rooms').where('user_id', user).andWhere('rooms.ativo', '=', valor).select('rooms.ativo', 'rooms.url_img', 'rooms.cod_sala', 'rooms.room_id').limit(6).offset((page -1) * 6).orderBy('ativo','asc');
+	} catch (er) {
+		status_req = '2';
+	}
+
+	return res.json({status_req, rooms});
+})
+
+//update perfil
+routes.put('/v1/update_perfil', async (req, res) => {
+	const {bio, whatsapp, site, instagram, facebook, fone, email_contat} = req.body;
+	const {user} = req.query;
+	var status_req = '1';
+	var result = '';
+	console.log(bio, whatsapp, site, instagram, facebook, fone, email_contat)
+
+	try {
+		result = await conn('users').where('user_id', '=', user).update({
+			bio,
+			whatsapp,
+			site,
+			instagram,
+			facebook,
+			fone,
+			email_contat
+		})
+	} catch (er) {
+		status_req = '2';
+	}
+
+  return res.json({status_req, result});
+})
+
+routes.get('/users', async (req, res) => {
+
+	const users = await conn('users').select('*');
+
+  return res.json(users);
 })
 
 routes.post('/new_user', async (req, res) => {
@@ -141,18 +251,11 @@ routes.post('/new_user', async (req, res) => {
 		cod_user,
 		sexo,
 		password,
-	  email  
+	  email,
+	  bio: 'Adicione algumas palavras sobre você.',
 	})
 
-
   return res.json(id);
-})
-
-routes.get('/users', async (req, res) => {
-
-	const users = await conn('users').select('*');
-
-  return res.json(users);
 })
 
 // participar de salas
@@ -192,33 +295,6 @@ routes.get('/rooms_search/', async (req, res) => {
 	const rooms = await conn('rooms').where('nome_livro', 'like', `%${room}%`);
 
   return res.json(rooms);
-})
-
-//usuários- pesquisar por nome
-routes.get('/users_search/', async (req, res) => {
-	const {user} = req.query;
-
-	if(user == ''){
-		return res.json();
-	}
-
-	const users = await conn('users').where('name', 'like', `%${user}%`).select('name','cod_user', 'url_avatar');
-
-  return res.json(users);
-})
-
-//usuários- as salas deste usuário
-//replicar para aberto e fechado
-routes.get('/room_me/', async (req, res) => {
-	const {user} = req.query;
-
-	if(user == ''){
-		return res.json();
-	}
-
-	const users = await conn('rooms').where('user_id', user).select('nome_livro','url_img', 'cod_sala', 'room_id');
-
-  return res.json(users);
 })
 
 //update dados do usuário
@@ -269,35 +345,6 @@ routes.put('/update_avatar', async (req, res) => {
 	const result = await conn('users').where('user_id', '=', id_user).update({
 		url_avatar
 	})
-
-  return res.json(result);
-})
-
-//update perfil
-routes.put('/update_perfil', async (req, res) => {
-	const {id_user, bio, whatsapp, site, telegram, instagram, facebook, fone} = req.body;
-
-
-	const result = await conn('users').where('user_id', '=', id_user).update({
-		bio,
-		whatsapp,
-		site,
-		telegram,
-		instagram,
-		facebook,
-		fone
-	})
-
-  return res.json(result);
-})
-
-//Perfil Outros
-routes.get('/perfil', async (req, res) => {
-	const {id} = req.query;
-
-	//deve vir com as salas
-	const result = await conn('rooms').join('users', 'users.user_id','=', id ).where('users.user_id','=', id );
-
 
   return res.json(result);
 })

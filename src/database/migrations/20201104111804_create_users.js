@@ -7,6 +7,7 @@ exports.up = function(knex) {
 	  table.string('sexo');
 	  table.string('password');
 	  table.string('email').unique();
+	  table.string('email_contat').unique();
 	  table.string('bio').nullable();
 	  table.timestamp('email_verified_at').nullable();
 	  table.boolean('ativo').defaultTo('1');
@@ -15,7 +16,6 @@ exports.up = function(knex) {
 	  table.string('estado').nullable();
 	  table.string('whatsapp').nullable();
 	  table.string('site').nullable();
-	  table.string('telegram').nullable();
 	  table.string('instagram').nullable();
 	  table.string('facebook').nullable();
 	  table.string('fone').nullable();
