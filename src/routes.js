@@ -8,7 +8,7 @@ const routes = express.Router();
 routes.get('/v1/rooms', async (req, res) => {
 	var rooms = '';
 	try {
-    rooms = await conn('rooms').join('users', 'rooms.user_id', '=', 'users.user_id').select('users.name', 'rooms.url_img', 'rooms.cod_sala','rooms.room_id', 'users.user_id').limit(7);
+    rooms = await conn('rooms').join('users', 'rooms.user_id', '=', 'users.user_id').where('rooms.ativo', '1').select('users.name', 'rooms.url_img', 'rooms.cod_sala','rooms.room_id', 'users.user_id').limit(7);
 
   } catch (er) {
     return res.json({status_req: '2'});
@@ -27,7 +27,7 @@ routes.get('/v1/enter_room_cod/:cod_sala', async (req, res) => {
 	try {
     room = await conn('users')
 	  .join('rooms', 'rooms.user_id', '=', 'users.user_id')
-	  .select('users.name', 'rooms.url_img','rooms.room_id','rooms.nome_livro', 'users.user_id','data_inicio', 'data_fim')
+	  .select('users.name', 'rooms.url_img', 'rooms.ativo', 'rooms.room_id','rooms.nome_livro', 'users.user_id','data_inicio', 'data_fim')
 	  .where({cod_sala: params.cod_sala})
 
   } catch (er) {
@@ -65,15 +65,14 @@ routes.get('/v1/room_info/:id_sala', async (req, res) => {
     status_req.status_users  = '2';
   }
 
-  if (users == '') status_req.status_users  = '0';
+  if (users == '' && status_req.status_users !== '2') status_req.status_users  = '0';
 
   return res.json({status_req, dados: {room, users}});
 })
 
 routes.post('/v1/new_room', async (req, res) => {
 	const {user_id, nome_livro, data_inicio, data_fim, data_debate, paginas, total_sala} = req.body;
-	//VERIFICAR SE O ID NÃO EXISTE
-	console.log()
+
 	var cod_sala = '';
   while (true) {
   	cod_sala = crypto.randomBytes(4).toString('HEX');
@@ -96,8 +95,7 @@ routes.post('/v1/new_room', async (req, res) => {
 		})
 
 	} catch (er) {
-    status_req  = '2';
-    console.log(er)
+    status_req  = '2'
   }
 
   return res.json({status_req, id});
@@ -169,7 +167,7 @@ routes.get('/v1/users_search/', async (req, res) => {
 	var users = '';
 	status_req = '1'
 	try {
-		users = await conn('users').where('name', 'like', `%${user}%`).select('name','cod_user', 'url_avatar').limit(6).offset((page -1) * 6);
+		users = await conn('users').where('name', 'like', `%${user}%`).select('name', 'user_id', 'cod_user', 'url_avatar').limit(6).offset((page -1) * 6);
 	} catch (er) {
 		status_req = '2';
 	}
@@ -188,6 +186,8 @@ routes.get('/v1/perfil', async (req, res) => {
 	} catch (er) {
 		status_req = '2';
 	}
+
+	if (perfil === '') status_req = '0'
 
   return res.json({status_req, perfil});
 })
@@ -214,7 +214,6 @@ routes.put('/v1/update_perfil', async (req, res) => {
 	const {user} = req.query;
 	var status_req = '1';
 	var result = '';
-	console.log(bio, whatsapp, site, instagram, facebook, fone, email_contat)
 
 	try {
 		result = await conn('users').where('user_id', '=', user).update({
@@ -231,6 +230,81 @@ routes.put('/v1/update_perfil', async (req, res) => {
 	}
 
   return res.json({status_req, result});
+})
+
+//update dados
+routes.put('/v1/update_dados', async (req, res) => {
+	const {name, sexo, cidade, estado  } = req.body;
+	const {user} = req.query;
+	var result = ''
+	var status_req = '1'
+	try {
+		result = await conn('users').where('user_id', '=', user).update({
+			name,
+			sexo,
+			cidade,
+			estado
+		})
+	} catch (er) {
+		status_req = '2';
+	}
+	if (result === '' && status_req !== '2') status_req = '0'
+
+
+  return res.json({status_req});
+})
+
+// participar de salas
+routes.post('/v1/new_room_user', async (req, res) => {
+	const {user_id, room_id } = req.body;
+	var status_req = '1'
+	var id = ''
+	try {
+		// verificar se o usuario já não está na sala
+		id = await conn('rooms_users').where('room_id', room_id).andWhere('user_id', user_id).select('*').first();
+		// verificar se o usuario não é o dono da sala
+		if (!id) {
+			id = await conn('rooms_users').insert({
+			user_id, 
+			room_id
+			})
+		} else {
+			status_req = '3';
+		}
+	} catch (er) {
+		status_req = '2';
+	}
+
+	if (id === '' && status_req !== '2') status_req = '0'
+
+  return res.json({status_req, id});
+})
+
+routes.get('/v1/room', async (req, res) => {
+	const {id} = req.query;
+	var status_req = '1';
+	var room = ''
+	try {
+		room = await conn('rooms').select('*').where('room_id', id);
+	} catch (er) {
+		var status_req = '2';
+	}
+	if (room === '' && status_req !== '2') status_req = '0'
+
+  return res.json({status_req, room});
+})
+
+routes.put('/v1/ativarRoom', async (req, res) => {
+	const {user_id, room_id} = req.body;
+	var status_req = '1';
+	// verificar se o usuário Id é o que está logado
+
+	const id = await conn('rooms').where('user_id', '=', user_id).andWhere('room_id', room_id).update({
+		ativo: '1'
+	})
+	if (id === '') status_req = '0'
+
+  return res.json({status_req, id});
 })
 
 routes.get('/users', async (req, res) => {
@@ -254,20 +328,6 @@ routes.post('/new_user', async (req, res) => {
 	  email,
 	  bio: 'Adicione algumas palavras sobre você.',
 	})
-
-  return res.json(id);
-})
-
-// participar de salas
-routes.post('/new_room_user', async (req, res) => {
-	const {user_id, room_id } = req.body;
-	// verificar se o usuario já não está na sala
-	// verificar se o usuario não é o dono da sala
-	const id = await conn('rooms_users').insert({
-		user_id, 
-		room_id
-	})
-
 
   return res.json(id);
 })
@@ -310,20 +370,6 @@ routes.put('/update_acesso', async (req, res) => {
   return res.json(result);
 })
 
-//update dados
-routes.put('/update_dados', async (req, res) => {
-	const {id_user, sexo, cidade, estado  } = req.body;
-
-
-	const result = await conn('users').where('user_id', '=', id_user).update({
-		name,
-		sexo,
-		cidade,
-		estado
-	})
-
-  return res.json(result);
-})
 
 //suspender conta
 routes.put('/conta_supender', async (req, res) => {

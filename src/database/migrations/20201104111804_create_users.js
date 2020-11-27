@@ -19,6 +19,7 @@ exports.up = function(knex) {
 	  table.string('instagram').nullable();
 	  table.string('facebook').nullable();
 	  table.string('fone').nullable();
+	  table.boolean('oficial').defaultTo('0');
 	  table.timestamps();
 	})
 };
