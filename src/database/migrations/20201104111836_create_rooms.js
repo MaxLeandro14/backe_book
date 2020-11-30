@@ -5,6 +5,7 @@ exports.up = function(knex) {
     	table.integer('user_id').unsigned().notNullable();
     	table.foreign('user_id').references('id').inTable('users');
     	table.string('nome_livro');
+        table.string('nome_foto_original');
         table.string('url_img').nullable();
         table.string('infor_regras').nullable();
         table.string('cod_sala').unique();

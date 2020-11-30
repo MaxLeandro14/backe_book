@@ -1,6 +1,11 @@
 const express = require('express');
+const multer = require('multer')
+const multerConfig = require('./config/multer')
 const crypto = require('crypto');
-const conn = require('./database/conn')
+const conn = require('./database/conn');
+const app_url = 'http://localhost:3333';
+const path = require('path');
+const fs = require('fs');
 
 const routes = express.Router();
 
@@ -254,6 +259,34 @@ routes.put('/v1/update_dados', async (req, res) => {
   return res.json({status_req});
 })
 
+routes.post('/v1/update_foto_capa', multer(multerConfig).single('file'), async (req, res) => {
+	const {user, room} = req.query;
+	var result = ''
+	var status_req = '1'
+	console.log(req.file)
+	const url_img = `${app_url}/files/${req.file.filename}`
+	const nome_foto_original = req.file.filename
+	try {
+		const tem = await conn('rooms').where('room_id', room).select('url_img', 'nome_livro', 'nome_foto_original').first();
+		if (tem) {
+			console.log(tem.url_img)
+			if (tem.url_img) {
+				const pathOrginal = `${app_url}/tmp/uploads/room/${tem.nome_foto_original}`
+				fs.unlinkSync(path.resolve(__dirname, 'tmp', 'uploads' ,'room', tem.nome_foto_original))
+			}
+			await conn('rooms').where('room_id', '=', room).update({
+				url_img,
+				nome_foto_original
+			})
+		}
+
+	} catch (er) {
+		console.log(er)
+		return res.json({status_req: '2'});
+	}
+
+  return res.json({status_req});
+})
 // participar de salas
 routes.post('/v1/new_room_user', async (req, res) => {
 	const {user_id, room_id } = req.body;
@@ -266,7 +299,8 @@ routes.post('/v1/new_room_user', async (req, res) => {
 		if (!id) {
 			id = await conn('rooms_users').insert({
 			user_id, 
-			room_id
+			room_id,
+			pagina: '0'
 			})
 		} else {
 			status_req = '3';
@@ -305,6 +339,28 @@ routes.put('/v1/ativarRoom', async (req, res) => {
 	if (id === '') status_req = '0'
 
   return res.json({status_req, id});
+})
+
+//Room infor para acessar
+routes.get('/v1/room_readers', async (req, res) => {
+	const {user, room, page = 1} = req.query;
+	var status_req = '1'
+	var users = '';
+
+  try {
+  	// pode vir vazio - nenhum inscrito
+		users = await conn('users').join('rooms_users', 'rooms_users.user_id', 'users.user_id' )
+		.select('users.url_avatar', 'users.name', 'rooms_users.pagina')
+		.where('rooms_users.room_id','=', room ).limit(6).offset((page -1) * 6);
+
+	} catch (er) {
+    return res.json({status_req: '2'});
+  }
+
+  if (users == '') status_req  = '0';
+ 
+
+  return res.json({status_req, users});
 })
 
 routes.get('/users', async (req, res) => {
