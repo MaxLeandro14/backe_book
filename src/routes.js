@@ -1,6 +1,9 @@
 const express = require('express');
 const multer = require('multer')
 const multerConfig = require('./config/multer')
+const multerAvatarConfig= require('./config/multer_avatar')
+const upload = multer(multerConfig).single('file')
+const uploadAvatar = multer(multerAvatarConfig).single('file')
 const crypto = require('crypto');
 const conn = require('./database/conn');
 const app_url = 'http://localhost:3333';
@@ -47,7 +50,7 @@ routes.get('/v1/enter_room_cod/:cod_sala', async (req, res) => {
 //Room infor para acessar
 routes.get('/v1/room_info/:id_sala', async (req, res) => {
 	const params = req.params;
-	var status_req = {status_room: '1', status_users: '1'}
+	var status_req = {status_room: '', status_users: ''}
 	var room = '';
 	var users = '';
 
@@ -56,8 +59,11 @@ routes.get('/v1/room_info/:id_sala', async (req, res) => {
 	  .join('rooms', 'rooms.user_id', '=', 'users.user_id')
 	  .select('users.name', 'users.user_id', 'rooms.room_id', 'rooms.nome_livro', 'rooms.url_img', 'rooms.infor_regras', 'rooms.data_inicio', 'rooms.data_fim', 'rooms.data_leituras', 'rooms.data_debate')
 	  .where({room_id: params.id_sala})
+
+	  status_req.status_room = '1'
 	} catch (er) {
-    status_req.status_room  = '2';
+		status_req.status_room = '2'
+		return res.json({status_req});
   }
 
   try {
@@ -65,6 +71,8 @@ routes.get('/v1/room_info/:id_sala', async (req, res) => {
 		users = await conn('users').join('rooms_users', 'rooms_users.user_id', 'users.user_id' )
 		.select('users.url_avatar', 'users.user_id')
 		.where('rooms_users.room_id','=', params.id_sala ).limit(5);
+
+		status_req.status_users = '1'
 
 	} catch (er) {
     status_req.status_users  = '2';
@@ -259,33 +267,44 @@ routes.put('/v1/update_dados', async (req, res) => {
   return res.json({status_req});
 })
 
-routes.post('/v1/update_foto_capa', multer(multerConfig).single('file'), async (req, res) => {
-	const {user, room} = req.query;
-	var result = ''
-	var status_req = '1'
-	console.log(req.file)
-	const url_img = `${app_url}/files/${req.file.filename}`
-	const nome_foto_original = req.file.filename
-	try {
-		const tem = await conn('rooms').where('room_id', room).select('url_img', 'nome_livro', 'nome_foto_original').first();
-		if (tem) {
-			console.log(tem.url_img)
-			if (tem.url_img) {
-				const pathOrginal = `${app_url}/tmp/uploads/room/${tem.nome_foto_original}`
-				fs.unlinkSync(path.resolve(__dirname, 'tmp', 'uploads' ,'room', tem.nome_foto_original))
-			}
-			await conn('rooms').where('room_id', '=', room).update({
-				url_img,
-				nome_foto_original
-			})
-		}
+routes.post('/v1/update_foto_capa', (req, res) => {
 
-	} catch (er) {
-		console.log(er)
-		return res.json({status_req: '2'});
-	}
+	upload(req, res, async function (err) {
+				var status_req = '1'
+        if (err) {
+        		if (err.code == "LIMIT_FILE_SIZE") {
+        			return res.status(400).send({ status_req: '3', message: 'Arquivo muito grande.' })
+        		}
+            return res.status(400).send({ status_req: '3', message: err.message })
+        }
+        // tudo bem
+        	const {user, room} = req.query;
+					var result = ''
+					const url_img = `${app_url}/files/${req.file.filename}`
+					const nome_foto_original = req.file.filename
+					try {
+						const tem = await conn('rooms').where('room_id', room).select('url_img', 'nome_livro', 'nome_foto_original').first();
+						if (tem) {
+							console.log(tem.url_img)
+							if (tem.url_img) {
+								const pathOrginal = `${app_url}/tmp/uploads/room/${tem.nome_foto_original}`
+								fs.unlinkSync(path.resolve(__dirname, 'tmp', 'uploads' ,'room', tem.nome_foto_original))
+							}
+							await conn('rooms').where('room_id', '=', room).update({
+								url_img,
+								nome_foto_original
+							})
+						}
 
-  return res.json({status_req});
+					} catch (er) {
+						console.log(er)
+						return res.json({status_req: '2'});
+					}
+
+				  return res.json({status_req, url_img});
+        //
+    })
+
 })
 // participar de salas
 routes.post('/v1/new_room_user', async (req, res) => {
@@ -341,6 +360,44 @@ routes.put('/v1/ativarRoom', async (req, res) => {
   return res.json({status_req, id});
 })
 
+//update avatar
+routes.post('/v1/update_avatar', async (req, res) => {
+
+	uploadAvatar(req, res, async function (err) {
+				var status_req = '1'
+        if (err) {
+        		if (err.code == "LIMIT_FILE_SIZE") {
+        			return res.status(400).send({ status_req: '3', message: 'Arquivo muito grande.' })
+        		}
+            return res.status(400).send({ status_req: '3', message: err.message })
+        }
+        // tudo bem
+        const { user } = req.query;
+				var result = ''
+				const url_avatar = `${app_url}/avatar/${req.file.filename}`
+				const nome_foto_original = req.file.filename
+
+				try {
+						const tem = await conn('users').where('user_id', user).select('url_avatar', 'email', 'nome_foto_original').first();
+						if (tem) {
+							if (tem.url_avatar) {
+								const pathOrginal = `${app_url}/tmp/uploads/perfil/${tem.nome_foto_original}`
+								fs.unlinkSync(path.resolve(__dirname, 'tmp', 'uploads' ,'perfil', tem.nome_foto_original))
+							}
+							await conn('users').where('user_id', '=', user).update({
+								url_avatar,
+								nome_foto_original
+							})
+						}
+
+					} catch (er) {
+						return res.json({status_req: '2'});
+					}
+
+				  return res.json({status_req, url_avatar});
+        //
+    })
+})
 //Room infor para acessar
 routes.get('/v1/room_readers', async (req, res) => {
 	const {user, room, page = 1} = req.query;
@@ -363,6 +420,23 @@ routes.get('/v1/room_readers', async (req, res) => {
   return res.json({status_req, users});
 })
 
+//update dados
+routes.put('/v1/update_room_config', async (req, res) => {
+	const {infor_regras, paginas, room_id } = req.body;
+	var status_req = '1'
+	try {
+		const room = await conn('rooms').where('room_id', '=', room_id).update({
+			infor_regras,
+			paginas
+		})
+		return res.json({status_req, room});
+	} catch (er) {
+		status_req = '2';
+		return res.json({status_req});
+	}
+
+})
+
 routes.get('/users', async (req, res) => {
 
 	const users = await conn('users').select('*');
@@ -381,8 +455,7 @@ routes.post('/new_user', async (req, res) => {
 		cod_user,
 		sexo,
 		password,
-	  email,
-	  bio: 'Adicione algumas palavras sobre você.',
+	  email
 	})
 
   return res.json(id);
@@ -439,16 +512,5 @@ routes.put('/conta_supender', async (req, res) => {
   return res.json(result);
 })
 
-//update avatar
-routes.put('/update_avatar', async (req, res) => {
-	const {id_user, url_avatar  } = req.body;
-
-
-	const result = await conn('users').where('user_id', '=', id_user).update({
-		url_avatar
-	})
-
-  return res.json(result);
-})
 
 module.exports = routes;

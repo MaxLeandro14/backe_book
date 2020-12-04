@@ -8,6 +8,7 @@ exports.up = function(knex) {
         table.string('nome_foto_original');
         table.string('url_img').nullable();
         table.string('infor_regras').nullable();
+        table.string('links').nullable();
         table.string('cod_sala').unique();
         table.integer('ativo').defaultTo('0');
         table.date('data_inicio');

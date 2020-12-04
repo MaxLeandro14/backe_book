@@ -12,6 +12,7 @@ exports.up = function(knex) {
 	  table.timestamp('email_verified_at').nullable();
 	  table.boolean('ativo').defaultTo('1');
 	  table.string('url_avatar').nullable();
+	  table.string('nome_foto_original').nullable();
 	  table.string('cidade').nullable();
 	  table.string('estado').nullable();
 	  table.string('whatsapp').nullable();

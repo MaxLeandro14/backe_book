@@ -8,5 +8,6 @@ app.use(express.json());
 app.use(cors());
 
 app.use('/files', express.static(path.resolve(__dirname, 'tmp', 'uploads' ,'room')))
+app.use('/avatar', express.static(path.resolve(__dirname, 'tmp', 'uploads' ,'perfil')))
 app.use(routes);
 app.listen(3333);
