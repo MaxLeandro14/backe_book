@@ -16,7 +16,7 @@ const routes = express.Router();
 routes.get('/v1/rooms', async (req, res) => {
 	var rooms = '';
 	try {
-    rooms = await conn('rooms').join('users', 'rooms.user_id', '=', 'users.user_id').where('rooms.ativo', '1').select('users.name', 'rooms.url_img', 'rooms.cod_sala','rooms.room_id', 'users.user_id').limit(7);
+    rooms = await conn('rooms').join('users', 'rooms.user_id', '=', 'users.user_id').where('rooms.ativo', '1').andWhere('rooms.tipo', '=', '1').select('users.name', 'rooms.url_img', 'rooms.cod_sala','rooms.room_id', 'users.user_id').limit(7);
 
   } catch (er) {
     return res.json({status_req: '2'});
@@ -96,6 +96,9 @@ routes.post('/v1/new_room', async (req, res) => {
 	var id = '';
 	var status_req = '1'
 	try {
+		const tipo = '1'
+		const infor_regras = ''
+		const links = ''
 		id = await conn('rooms').insert({
 		 user_id,
      nome_livro,
@@ -104,7 +107,10 @@ routes.post('/v1/new_room', async (req, res) => {
      data_inicio,
      data_fim,
      data_debate,
-     cod_sala
+     cod_sala,
+     tipo,
+     infor_regras,
+     links
 		})
 
 	} catch (er) {
@@ -120,7 +126,7 @@ routes.get('/v1/room_all', async (req, res) => {
 	// const [count] = await conn('rooms').count();
 	// res.header('X-Total-Count', count['count(*)']);
 
-	const room = await conn('rooms').join('users', 'rooms.user_id', '=', 'users.user_id').select('users.name', 'rooms.paginas', 'rooms.nome_livro', 'rooms.data_inicio', 'rooms.url_img', 'rooms.cod_sala','rooms.room_id', 'users.user_id').limit(5).offset((page -1) * 5);
+	const room = await conn('rooms').join('users', 'rooms.user_id', '=', 'users.user_id').where('rooms.ativo', '1').andWhere('rooms.tipo', '=', '1').select('users.name', 'rooms.paginas', 'rooms.nome_livro', 'rooms.data_inicio', 'rooms.url_img', 'rooms.cod_sala','rooms.room_id', 'users.user_id').limit(5).offset((page -1) * 5);
 
   return res.json(room);
 })
@@ -213,7 +219,7 @@ routes.get('/v1/room_other', async (req, res) => {
 	var status_req = '1';
 
 	try {
-		rooms = await conn('rooms').where('user_id', user).andWhere('rooms.ativo', '=', valor).select('rooms.ativo', 'rooms.url_img', 'rooms.cod_sala', 'rooms.room_id').limit(6).offset((page -1) * 6).orderBy('ativo','asc');
+		rooms = await conn('rooms').where('user_id', user).andWhere('rooms.ativo', '=', valor).andWhere('rooms.tipo', '=', '1').select('rooms.ativo', 'rooms.url_img', 'rooms.cod_sala', 'rooms.room_id').limit(6).offset((page -1) * 6).orderBy('ativo','asc');
 	} catch (er) {
 		status_req = '2';
 	}
@@ -422,12 +428,13 @@ routes.get('/v1/room_readers', async (req, res) => {
 
 //update dados
 routes.put('/v1/update_room_config', async (req, res) => {
-	const {infor_regras, paginas, room_id } = req.body;
+	const {infor_regras, paginas, room_id, links} = req.body;
 	var status_req = '1'
 	try {
 		const room = await conn('rooms').where('room_id', '=', room_id).update({
 			infor_regras,
-			paginas
+			paginas,
+			links
 		})
 		return res.json({status_req, room});
 	} catch (er) {
@@ -436,6 +443,46 @@ routes.put('/v1/update_room_config', async (req, res) => {
 	}
 
 })
+// adicionar datas de debates - as metas de leituras
+routes.put('/v1/update_room_config_leituras', async (req, res) => {
+	const {room_id, data_leituras} = req.body;
+	var status_req = '1'
+	try {
+		const room = await conn('rooms').where('room_id', '=', room_id).update({
+			data_leituras
+		})
+		return res.json({status_req, room});
+	} catch (er) {
+		status_req = '2';
+		return res.json({status_req});
+	}
+
+})
+
+// atualizar leitura
+routes.put('/v1/update_read', async (req, res) => {
+	const {user_id, room_id, pagina} = req.body;
+	status_req = '1';
+	try {
+	const id = await conn('rooms_users').where('user_id', '=', user_id).andWhere('room_id', room_id).update({
+		pagina
+	})
+
+	return res.json({status_req, id});
+
+	} catch (er) {
+		status_req = '2';
+		return res.json({status_req});
+	}
+})
+routes.get('/v1/update_read', async (req, res) => {
+	const {user, room} = req.query;
+
+	const id = await conn('rooms_users').where('user_id', '=', user).andWhere('room_id', room).select('*')
+
+  return res.json(id);
+})
+
 
 routes.get('/users', async (req, res) => {
 
@@ -456,18 +503,6 @@ routes.post('/new_user', async (req, res) => {
 		sexo,
 		password,
 	  email
-	})
-
-  return res.json(id);
-})
-
-// atualizar leitura
-routes.put('/update_read', async (req, res) => {
-	const {user_id, room_id, pagina} = req.body;
-
-	const id = await conn('rooms_users').where('user_id', '=', id_user).update({
-		pagina,
-	  registros: registros + registrar
 	})
 
   return res.json(id);

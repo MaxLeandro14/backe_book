@@ -11,6 +11,7 @@ exports.up = function(knex) {
         table.string('links').nullable();
         table.string('cod_sala').unique();
         table.integer('ativo').defaultTo('0');
+        table.string('tipo').defaultTo('1');
         table.date('data_inicio');
         table.date('data_fim');
         table.string('data_leituras').nullable();
