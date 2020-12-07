@@ -428,12 +428,11 @@ routes.get('/v1/room_readers', async (req, res) => {
 
 //update dados
 routes.put('/v1/update_room_config', async (req, res) => {
-	const {infor_regras, paginas, room_id, links} = req.body;
+	const {infor_regras, room_id, links} = req.body;
 	var status_req = '1'
 	try {
 		const room = await conn('rooms').where('room_id', '=', room_id).update({
 			infor_regras,
-			paginas,
 			links
 		})
 		return res.json({status_req, room});
