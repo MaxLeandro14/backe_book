@@ -428,12 +428,13 @@ routes.get('/v1/room_readers', async (req, res) => {
 
 //update dados
 routes.put('/v1/update_room_config', async (req, res) => {
-	const {infor_regras, room_id, links} = req.body;
+	const {infor_regras, room_id, links, sinopse} = req.body;
 	var status_req = '1'
 	try {
 		const room = await conn('rooms').where('room_id', '=', room_id).update({
 			infor_regras,
-			links
+			links,
+			sinopse
 		})
 		return res.json({status_req, room});
 	} catch (er) {
@@ -458,6 +459,22 @@ routes.put('/v1/update_room_config_leituras', async (req, res) => {
 
 })
 
+routes.put('/v1/update_room_config_geral', async (req, res) => {
+	const {room_id, tipo, paginas, total_sala} = req.body;
+	var status_req = '1'
+	try {
+		const room = await conn('rooms').where('room_id', '=', room_id).update({
+			tipo,
+			paginas,
+			total_sala
+		})
+		return res.json({status_req, room: {tipo, paginas, total_sala}});
+	} catch (er) {
+		status_req = '2';
+		return res.json({status_req});
+	}
+
+})
 // atualizar leitura
 routes.put('/v1/update_read', async (req, res) => {
 	const {user_id, room_id, pagina} = req.body;
