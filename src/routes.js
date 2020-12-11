@@ -445,11 +445,12 @@ routes.put('/v1/update_room_config', async (req, res) => {
 })
 // adicionar datas de debates - as metas de leituras
 routes.put('/v1/update_room_config_leituras', async (req, res) => {
-	const {room_id, data_leituras} = req.body;
+	const {room_id, data_leituras, data_debate} = req.body;
 	var status_req = '1'
 	try {
 		const room = await conn('rooms').where('room_id', '=', room_id).update({
-			data_leituras
+			data_leituras,
+			data_debate
 		})
 		return res.json({status_req, room});
 	} catch (er) {
@@ -491,6 +492,25 @@ routes.put('/v1/update_read', async (req, res) => {
 		return res.json({status_req});
 	}
 })
+
+routes.put('/v1/add_debate', async (req, res) => {
+	const {user_id, room_id, data_debate, data_leituras} = req.body;
+	status_req = '1';
+	try {
+	const id = await conn('rooms').where('user_id', '=', user_id).andWhere('room_id', room_id).update({
+		data_debate,
+		data_leituras
+	})
+
+	return res.json({status_req, id});
+
+	} catch (er) {
+		console.log(er)
+		status_req = '2';
+		return res.json({status_req});
+	}
+})
+
 routes.get('/v1/update_read', async (req, res) => {
 	const {user, room} = req.query;
 
@@ -498,7 +518,35 @@ routes.get('/v1/update_read', async (req, res) => {
 
   return res.json(id);
 })
+// deletar a sala
+routes.delete('/v1/room_delete', async (req, res) => {
+	const {user_id, room_id} = req.body;
+	var status_req = '1'
+	try {
+		const id = await conn('rooms').where('room_id', '=', room_id).andWhere('user_id', user_id).del()
 
+	  return res.json({status_req, id});
+  } catch (er) {
+		status_req = '2';
+		return res.json({status_req});
+	}
+})
+// sair da sala
+routes.delete('/v1/room_sair', async (req, res) => {
+	const {user_id, room_id} = req.body;
+	var status_req = '1'
+	console.log(user_id, room_id)
+	// remover da notificação também
+	try {
+		const id = await conn('rooms_users').where('room_id', '=', room_id).andWhere('user_id', user_id).del()
+
+	  return res.json({status_req, id});
+  } catch (er) {
+		status_req = '2';
+		console.log(er)
+		return res.json({status_req});
+	}
+})
 
 routes.get('/users', async (req, res) => {
 

@@ -3,7 +3,7 @@ exports.up = function(knex) {
   return knex.schema.createTable('rooms', function (table) {
     	table.increments('room_id').primary();
     	table.integer('user_id').unsigned().notNullable();
-    	table.foreign('user_id').references('id').inTable('users');
+    	table.foreign('user_id').references('id').inTable('users').onDelete('CASCADE');
     	table.string('nome_livro');
         table.string('nome_foto_original');
         table.string('url_img').nullable();
