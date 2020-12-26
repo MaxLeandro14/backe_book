@@ -5,12 +5,29 @@ const multerAvatarConfig= require('./config/multer_avatar')
 const upload = multer(multerConfig).single('file')
 const uploadAvatar = multer(multerAvatarConfig).single('file')
 const crypto = require('crypto');
+const jwt = require('./config/jwt');
 const conn = require('./database/conn');
 const app_url = 'http://localhost:3333';
 const path = require('path');
 const fs = require('fs');
 
 const routes = express.Router();
+
+// verifica acesso
+const authMiddleware = async (req, res, next) => {
+  const [, token] = req.headers.authorization.split(' ')
+  console.log(req.headers.authorization)
+  try {
+    const payload = await jwt.verify(token)
+    // payload tem o id do usuario logado
+    // abaixo salvo os dados do usuario
+    req.auth = payload.user
+
+    next()
+  } catch (error) {
+    return res.json({status_req: '2'});
+  }
+}
 
 //Index - Obter as 10 salas
 routes.get('/v1/rooms', async (req, res) => {
@@ -99,6 +116,7 @@ routes.post('/v1/new_room', async (req, res) => {
 		const tipo = '1'
 		const infor_regras = ''
 		const links = ''
+		const sinopse = ''
 		id = await conn('rooms').insert({
 		 user_id,
      nome_livro,
@@ -110,8 +128,17 @@ routes.post('/v1/new_room', async (req, res) => {
      cod_sala,
      tipo,
      infor_regras,
-     links
+     links,
+     sinopse
 		})
+
+		if (id) {
+			await conn('rooms_users').insert({
+				user_id,
+				room_id: id,
+				pagina: '0'
+			})
+		}
 
 	} catch (er) {
     status_req  = '2'
@@ -419,7 +446,7 @@ routes.get('/v1/room_readers', async (req, res) => {
 	} catch (er) {
     return res.json({status_req: '2'});
   }
-
+  console.log(users)
   if (users == '') status_req  = '0';
  
 
@@ -518,6 +545,130 @@ routes.get('/v1/update_read', async (req, res) => {
 
   return res.json(id);
 })
+
+//Room infor minha leitura
+routes.get('/v1/room_my_reader', async (req, res) => {
+	const {user, room} = req.query;
+	var status_req = '1'
+	console.log(user, room)
+  try {
+		const pagina = await conn('rooms_users').where('user_id','=', user ).andWhere('room_id', room).select('pagina').first();
+		console.log(pagina)
+		if (!pagina) return res.json({status_req: '0'});
+
+		return res.json({status_req, pagina});
+	} catch (er) {
+    return res.json({status_req: '2'});
+  }
+
+  return res.json({status_req, pagina});
+})
+
+// dados
+routes.get('/v1/room_dados', async (req, res) => {
+	const {room} = req.query;
+	var status_req = '1'
+	console.log(room)
+  try {
+		const dados =  await conn('users').join('rooms_users', 'rooms_users.user_id', 'users.user_id' ).where('rooms_users.room_id','=', room ).select('users.sexo', 'users.estado');
+
+		if (!dados) return res.json({status_req: '0'});
+		var perfil = {}
+		var estado = {}
+		var tot = 0
+		dados.map((item) => {
+			tot++
+			if (estado[item.estado]) {
+				estado[item.estado] = estado[item.estado] + 1
+			} else {
+				estado[item.estado] = 1
+			}
+			if (perfil[item.sexo]) {
+				perfil[item.sexo] = perfil[item.sexo] + 1
+			} else {
+				perfil[item.sexo] = 1
+			}
+		})
+		return res.json({status_req, dados: {tot, perfil, estado} });
+	} catch (er) {
+		console.log(er)
+    return res.json({status_req: '2'});
+  }
+
+  return res.json({status_req, dados});
+})
+
+//Room cria questionario
+routes.post('/v1/room_quest', async (req, res) => {
+	const { room, quest } = req.body;
+	var status_req = '1'
+  try {
+		const id = await conn('questionario').insert({
+			room_id: room,
+			quest
+		})
+
+		return res.json({status_req, id});
+	} catch (er) {
+    return res.json({status_req: '2'});
+  }
+})
+
+//Room cria questionario
+routes.get('/v1/room_quest', async (req, res) => {
+	const { room } = req.query;
+	var status_req = '1'
+  try {
+		const quest = await await conn('questionario').where('room_id', room).select('quest').first();
+
+		return res.json({status_req, quest});
+	} catch (er) {
+		console.log(er)
+    return res.json({status_req: '2'});
+  }
+})
+
+//Room up questionario
+routes.put('/v1/room_quest', async (req, res) => {
+	const { room, quest } = req.body;
+	var status_req = '1'
+	console.log(room, quest)
+  try {
+		const id = await conn('questionario').where('room_id', '=', room).update({
+			quest
+		})
+
+		return res.json({status_req, id});
+	} catch (er) {
+		console.log(er)
+    return res.json({status_req: '2'});
+  }
+})
+
+routes.put('/v1/fecharRoom', async (req, res) => {
+	const {user_id, room_id} = req.body;
+	var status_req = '1';
+	try {
+			const id = await conn('rooms').where('user_id', '=', user_id).andWhere('room_id', room_id).update({
+				ativo: '2'
+			})
+
+		if (id === '') status_req = '0'
+
+		return res.json({status_req, id});
+	} catch (er) {
+		console.log(er)
+    return res.json({status_req: '2'});
+  }
+})
+
+
+
+
+
+
+
+
 // deletar a sala
 routes.delete('/v1/room_delete', async (req, res) => {
 	const {user_id, room_id} = req.body;
@@ -548,7 +699,83 @@ routes.delete('/v1/room_sair', async (req, res) => {
 	}
 })
 
-routes.get('/users', async (req, res) => {
+
+
+
+
+
+
+// cadastro
+routes.post('/v1/signup', async (req, res) => {
+	var status_req = '1'
+  try {
+  	const {email, senha, name, sexo} = req.body;
+  	console.log(email, senha)
+  	const password = crypto.createHash('md5').update(senha).digest('hex')
+  	var cod_user = '';
+	  while (true) {
+	  	cod_user = crypto.randomBytes(4).toString('HEX');
+	  	var [count] = await conn('users').where('cod_user', '=', cod_user).count()
+
+	  	if (count['count(*)'] === 0) break
+	  }
+  	const user = await conn('users').insert({
+  	 name,
+		 cod_user,
+		 sexo,
+		 password,
+		 email,
+		 estado: 'Não definido'
+		})
+  	console.log(user)
+    const token = jwt.sign({ user })
+
+    //res.send({ user, token })
+    res.json({ user, token })
+  } catch (er) {
+    status_req = '2';
+		console.log(er)
+		return res.json({status_req});
+  }
+})
+
+
+
+
+
+
+
+routes.get('/v1/login', async (req, res) => {
+  const [, hash] = req.headers.authorization.split(' ')
+  const [email, password] = Buffer.from(hash, 'base64')
+    .toString()
+    .split(':')
+  var status_req = '1';
+  const senha = crypto.createHash('md5').update(password).digest('hex')
+  try {
+  	const user = conn('users').where('email','=', email).select('password', 'user_id').then(
+			function(result){
+
+				if (senha === result[0].password){
+					const token = jwt.sign({ user: result[0].user_id })
+					return res.json({ user_id: result[0].user_id, token, status_req });
+				} else {
+					status_req = '2';
+					return res.json({status_req});
+				}
+
+			}).catch(function(error) {
+				status_req = '2';
+				return res.json({status_req});
+			});
+
+  } catch (er) {
+  	status_req = '2';
+    return res.json({status_req});
+  }
+})
+
+routes.get('/users', authMiddleware, async (req, res) => {
 
 	const users = await conn('users').select('*');
 
@@ -566,7 +793,8 @@ routes.post('/new_user', async (req, res) => {
 		cod_user,
 		sexo,
 		password,
-	  email
+	  email,
+	  estado: 'Não definido'
 	})
 
   return res.json(id);

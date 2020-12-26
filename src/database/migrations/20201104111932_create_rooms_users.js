@@ -8,10 +8,10 @@ exports.up = function(knex) {
 		 table.foreign('user_id').references('user_id').inTable('users').onDelete('CASCADE');
 
 		 table.string('pagina').nullable();
-		 table.json('registros').nullable();
-		 table.string('registros_teste').nullable();
+		 table.string('registros').nullable();
+		 table.string('res_quest').nullable();
 	})
-	 
+
 };
 
 exports.down = function(knex) {
