@@ -752,6 +752,7 @@ routes.get('/v1/login', async (req, res) => {
     .split(':')
   var status_req = '1';
   const senha = crypto.createHash('md5').update(password).digest('hex')
+  console.log(email, password)
   try {
   	const user = conn('users').where('email','=', email).select('password', 'user_id').then(
 			function(result){
